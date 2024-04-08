@@ -1,0 +1,92 @@
+using System;
+using System.Configuration;
+using Confluent.Kafka;
+using Newtonsoft.Json.Linq;
+using Microsoft.Office.Interop.Excel;
+
+namespace KafkaConsumer
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            var config = new ConsumerConfig
+            {
+                BootstrapServers = "your-bootstrap-server",
+                GroupId = "test-consumer-group",
+                AutoOffsetReset = AutoOffsetReset.Earliest,
+            };
+
+            using (var consumer = new ConsumerBuilder<Ignore, string>(config).Build())
+            {
+                consumer.Subscribe(ConfigurationManager.AppSettings["Topic"]);
+
+                try
+                {
+                    while (true)
+                    {
+                        var consumeResult = consumer.Consume();
+
+                        if (consumeResult != null && consumeResult.Message != null)
+                        {
+                            Console.WriteLine($"Consumed message {consumeResult.Value} at: {consumeResult.TopicPartitionOffset}");
+
+                            // Parse JSON message
+                            var jsonObject = JObject.Parse(consumeResult.Value);
+
+                            // Get Key and Value from JSON
+                            var key = jsonObject["Key"].ToString();
+                            var value = jsonObject["Value"].ToString();
+
+                            // Write Key and Value to Excel
+                            WriteToExcel(key, value);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Running in else part");
+                        }
+                    }
+                }
+                catch (ConsumeException e)
+                {
+                    Console.WriteLine($"Error occurred: {e.Error.Reason}");
+                }
+                finally
+                {
+                    consumer.Close();
+                }
+            }
+        }
+
+        static void WriteToExcel(string key, string value)
+        {
+            // Create a new instance of Excel Application
+            Application excelApp = new Application();
+            excelApp.Visible = true;
+
+            // Create a new Workbook
+            Workbook workbook = excelApp.Workbooks.Add();
+            Worksheet worksheet = workbook.ActiveSheet;
+
+            // Write Key and Value to Excel
+            worksheet.Cells[1, 1].Value = "Key";
+            worksheet.Cells[1, 2].Value = "Value";
+            worksheet.Cells[2, 1].Value = key;
+            worksheet.Cells[2, 2].Value = value;
+
+            // Save the Workbook
+            workbook.SaveAs("output.xlsx");
+
+            // Close Excel Application
+            excelApp.Quit();
+
+            // Release COM objects to avoid memory leaks
+            System.Runtime.InteropServices.Marshal.ReleaseComObject(worksheet);
+            System.Runtime.InteropServices.Marshal.ReleaseComObject(workbook);
+            System.Runtime.InteropServices.Marshal.ReleaseComObject(excelApp);
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+    }
+}
