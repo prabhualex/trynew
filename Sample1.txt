@@ -1,0 +1,93 @@
+using System;
+using System.Configuration;
+using Confluent.Kafka;
+using Newtonsoft.Json;
+using OfficeOpenXml;
+
+namespace KafkaConsumer
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            var config = new ConsumerConfig
+            {
+                BootstrapServers = "localhost:9092",
+                GroupId = "test-consumer-group",
+                AutoOffsetReset = AutoOffsetReset.Earliest
+            };
+
+            using (var consumer = new ConsumerBuilder<Ignore, string>(config).Build())
+            {
+                consumer.Subscribe(ConfigurationManager.AppSettings["Topic"]);
+
+                try
+                {
+                    while (true)
+                    {
+                        var consumeResult = consumer.Consume();
+
+                        if (consumeResult != null && consumeResult.Message != null)
+                        {
+                            Console.WriteLine($"Consumed message {consumeResult.Value} at: {consumeResult.TopicPartitionOffset}.");
+
+                            // Parse JSON message
+                            var jsonMessage = consumeResult.Value;
+                            var jsonObject = JsonConvert.DeserializeObject<dynamic>(jsonMessage);
+
+                            // Extract Key and Value
+                            string key = "", value = "";
+                            foreach (var property in jsonObject)
+                            {
+                                key += property.Name + ",";
+                                value += property.Value + ",";
+                            }
+
+                            // Remove trailing commas
+                            key = key.TrimEnd(',');
+                            value = value.TrimEnd(',');
+
+                            // Write to Excel
+                            WriteToExcel(key, value);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Running in else part");
+                        }
+                    }
+                }
+                catch (ConsumeException e)
+                {
+                    Console.WriteLine($"Error occurred: {e.Error.Reason}");
+                }
+                finally
+                {
+                    consumer.Close();
+                }
+            }
+        }
+
+        static void WriteToExcel(string key, string value)
+        {
+            using (var package = new ExcelPackage())
+            {
+                var worksheet = package.Workbook.Worksheets.Add("KafkaData");
+                worksheet.Cells["A1"].Value = "Key";
+                worksheet.Cells["B1"].Value = "Value";
+
+                var keyArray = key.Split(',');
+                var valueArray = value.Split(',');
+
+                for (int i = 0; i < keyArray.Length; i++)
+                {
+                    worksheet.Cells[i + 2, 1].Value = keyArray[i];
+                    worksheet.Cells[i + 2, 2].Value = valueArray[i];
+                }
+
+                package.SaveAs(new System.IO.FileInfo("KafkaData.xlsx"));
+            }
+
+            Console.WriteLine("Data written to Excel successfully.");
+        }
+    }
+}
