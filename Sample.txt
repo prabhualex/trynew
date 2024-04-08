@@ -1,8 +1,8 @@
 using System;
 using System.Configuration;
 using Confluent.Kafka;
-using Newtonsoft.Json.Linq;
-using Microsoft.Office.Interop.Excel;
+using Newtonsoft.Json;
+using Excel = Microsoft.Office.Interop.Excel;
 
 namespace KafkaConsumer
 {
@@ -12,9 +12,9 @@ namespace KafkaConsumer
         {
             var config = new ConsumerConfig
             {
-                BootstrapServers = "your-bootstrap-server",
+                BootstrapServers = "localhost:9092",
                 GroupId = "test-consumer-group",
-                AutoOffsetReset = AutoOffsetReset.Earliest,
+                AutoOffsetReset = AutoOffsetReset.Earliest
             };
 
             using (var consumer = new ConsumerBuilder<Ignore, string>(config).Build())
@@ -29,16 +29,25 @@ namespace KafkaConsumer
 
                         if (consumeResult != null && consumeResult.Message != null)
                         {
-                            Console.WriteLine($"Consumed message {consumeResult.Value} at: {consumeResult.TopicPartitionOffset}");
+                            Console.WriteLine($"Consumed message {consumeResult.Value} at: {consumeResult.TopicPartitionOffset}.");
 
                             // Parse JSON message
-                            var jsonObject = JObject.Parse(consumeResult.Value);
+                            var jsonMessage = consumeResult.Value;
+                            var jsonObject = JsonConvert.DeserializeObject<dynamic>(jsonMessage);
 
-                            // Get Key and Value from JSON
-                            var key = jsonObject["Key"].ToString();
-                            var value = jsonObject["Value"].ToString();
+                            // Extract Key and Value
+                            string key = "", value = "";
+                            foreach (var property in jsonObject)
+                            {
+                                key += property.Name + ",";
+                                value += property.Value + ",";
+                            }
 
-                            // Write Key and Value to Excel
+                            // Remove trailing commas
+                            key = key.TrimEnd(',');
+                            value = value.TrimEnd(',');
+
+                            // Write to Excel
                             WriteToExcel(key, value);
                         }
                         else
@@ -60,34 +69,28 @@ namespace KafkaConsumer
 
         static void WriteToExcel(string key, string value)
         {
-            // Create a new instance of Excel Application
-            Application excelApp = new Application();
+            var excelApp = new Excel.Application();
             excelApp.Visible = true;
+            var workbook = excelApp.Workbooks.Add();
+            var worksheet = (Excel.Worksheet)workbook.Worksheets[1];
 
-            // Create a new Workbook
-            Workbook workbook = excelApp.Workbooks.Add();
-            Worksheet worksheet = workbook.ActiveSheet;
+            worksheet.Cells[1, 1] = "Key";
+            worksheet.Cells[1, 2] = "Value";
 
-            // Write Key and Value to Excel
-            var range = worksheet.Range["A1", "B1"];
-            range.Value = new object[,] { { "Key", "Value" } };
+            var keyArray = key.Split(',');
+            var valueArray = value.Split(',');
 
-            worksheet.Cells[2, 1].Value = key;
-            worksheet.Cells[2, 2].Value = value;
+            for (int i = 0; i < keyArray.Length; i++)
+            {
+                worksheet.Cells[i + 2, 1] = keyArray[i];
+                worksheet.Cells[i + 2, 2] = valueArray[i];
+            }
 
-            // Save the Workbook
-            workbook.SaveAs("output.xlsx");
-
-            // Close Excel Application
+            workbook.SaveAs("KafkaData.xlsx");
+            workbook.Close();
             excelApp.Quit();
 
-            // Release COM objects to avoid memory leaks
-            System.Runtime.InteropServices.Marshal.ReleaseComObject(worksheet);
-            System.Runtime.InteropServices.Marshal.ReleaseComObject(workbook);
-            System.Runtime.InteropServices.Marshal.ReleaseComObject(excelApp);
-
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
+            Console.WriteLine("Data written to Excel successfully.");
         }
     }
 }
