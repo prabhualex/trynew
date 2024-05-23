@@ -1,93 +1,72 @@
-using System;
-using System.Configuration;
-using Confluent.Kafka;
-using Newtonsoft.Json;
-using OfficeOpenXml;
-
-namespace KafkaConsumer
-{
-    class Program
-    {
-        static void Main(string[] args)
-        {
-            var config = new ConsumerConfig
-            {
-                BootstrapServers = "localhost:9092",
-                GroupId = "test-consumer-group",
-                AutoOffsetReset = AutoOffsetReset.Earliest
-            };
-
-            using (var consumer = new ConsumerBuilder<Ignore, string>(config).Build())
-            {
-                consumer.Subscribe(ConfigurationManager.AppSettings["Topic"]);
-
-                try
-                {
-                    while (true)
-                    {
-                        var consumeResult = consumer.Consume();
-
-                        if (consumeResult != null && consumeResult.Message != null)
-                        {
-                            Console.WriteLine($"Consumed message {consumeResult.Value} at: {consumeResult.TopicPartitionOffset}.");
-
-                            // Parse JSON message
-                            var jsonMessage = consumeResult.Value;
-                            var jsonObject = JsonConvert.DeserializeObject<dynamic>(jsonMessage);
-
-                            // Extract Key and Value
-                            string key = "", value = "";
-                            foreach (var property in jsonObject)
-                            {
-                                key += property.Name + ",";
-                                value += property.Value + ",";
-                            }
-
-                            // Remove trailing commas
-                            key = key.TrimEnd(',');
-                            value = value.TrimEnd(',');
-
-                            // Write to Excel
-                            WriteToExcel(key, value);
-                        }
-                        else
-                        {
-                            Console.WriteLine("Running in else part");
-                        }
-                    }
-                }
-                catch (ConsumeException e)
-                {
-                    Console.WriteLine($"Error occurred: {e.Error.Reason}");
-                }
-                finally
-                {
-                    consumer.Close();
-                }
-            }
-        }
-
-        static void WriteToExcel(string key, string value)
-        {
-            using (var package = new ExcelPackage())
-            {
-                var worksheet = package.Workbook.Worksheets.Add("KafkaData");
-                worksheet.Cells["A1"].Value = "Key";
-                worksheet.Cells["B1"].Value = "Value";
-
-                var keyArray = key.Split(',');
-                var valueArray = value.Split(',');
-
-                for (int i = 0; i < keyArray.Length; i++)
-                {
-                    worksheet.Cells[i + 2, 1].Value = keyArray[i];
-                    worksheet.Cells[i + 2, 2].Value = valueArray[i];
-                }
-
-                package.SaveAs(new System.IO.FileInfo("KafkaData.xlsx"));
-            }
-
-            Console.WriteLine("Data written to Excel successfully.");
-        }
-    }
-}
+CREATE OR REPLACE PROCEDURE BC_UPDATE_SPOT (
+    p_yearmonth IN SRH.yearmonth%TYPE,
+    p_SPOT1     IN SRH.SPOT1%TYPE DEFAULT NULL,
+    p_SPOT2     IN SRH.SPOT2%TYPE DEFAULT NULL,
+    p_SPOT3     IN SRH.SPOT3%TYPE DEFAULT NULL,
+    p_SPOT4     IN SRH.SPOT4%TYPE DEFAULT NULL,
+    p_SPOT5     IN SRH.SPOT5%TYPE DEFAULT NULL,
+    p_SPOT6     IN SRH.SPOT6%TYPE DEFAULT NULL,
+    p_SPOT7     IN SRH.SPOT7%TYPE DEFAULT NULL,
+    p_SPOT8     IN SRH.SPOT8%TYPE DEFAULT NULL,
+    p_SPOT9     IN SRH.SPOT9%TYPE DEFAULT NULL,
+    p_SPOT10    IN SRH.SPOT10%TYPE DEFAULT NULL,
+    p_SPOT11    IN SRH.SPOT11%TYPE DEFAULT NULL,
+    p_SPOT12    IN SRH.SPOT12%TYPE DEFAULT NULL,
+    p_SPOT13    IN SRH.SPOT13%TYPE DEFAULT NULL,
+    p_SPOT14    IN SRH.SPOT14%TYPE DEFAULT NULL,
+    p_SPOT15    IN SRH.SPOT15%TYPE DEFAULT NULL,
+    p_SPOT16    IN SRH.SPOT16%TYPE DEFAULT NULL,
+    p_SPOT17    IN SRH.SPOT17%TYPE DEFAULT NULL,
+    p_SPOT18    IN SRH.SPOT18%TYPE DEFAULT NULL,
+    p_SPOT19    IN SRH.SPOT19%TYPE DEFAULT NULL,
+    p_SPOT20    IN SRH.SPOT20%TYPE DEFAULT NULL,
+    p_SPOT21    IN SRH.SPOT21%TYPE DEFAULT NULL,
+    p_SPOT22    IN SRH.SPOT22%TYPE DEFAULT NULL,
+    p_SPOT23    IN SRH.SPOT23%TYPE DEFAULT NULL,
+    p_SPOT24    IN SRH.SPOT24%TYPE DEFAULT NULL,
+    p_SPOT25    IN SRH.SPOT25%TYPE DEFAULT NULL,
+    p_SPOT26    IN SRH.SPOT26%TYPE DEFAULT NULL,
+    p_SPOT27    IN SRH.SPOT27%TYPE DEFAULT NULL,
+    p_SPOT28    IN SRH.SPOT28%TYPE DEFAULT NULL,
+    p_SPOT29    IN SRH.SPOT29%TYPE DEFAULT NULL,
+    p_SPOT30    IN SRH.SPOT30%TYPE DEFAULT NULL,
+    p_SPOT31    IN SRH.SPOT31%TYPE DEFAULT NULL
+)
+IS
+BEGIN
+    UPDATE SRH
+    SET
+        SPOT1  = NVL(p_SPOT1, SPOT1),
+        SPOT2  = NVL(p_SPOT2, SPOT2),
+        SPOT3  = NVL(p_SPOT3, SPOT3),
+        SPOT4  = NVL(p_SPOT4, SPOT4),
+        SPOT5  = NVL(p_SPOT5, SPOT5),
+        SPOT6  = NVL(p_SPOT6, SPOT6),
+        SPOT7  = NVL(p_SPOT7, SPOT7),
+        SPOT8  = NVL(p_SPOT8, SPOT8),
+        SPOT9  = NVL(p_SPOT9, SPOT9),
+        SPOT10 = NVL(p_SPOT10, SPOT10),
+        SPOT11 = NVL(p_SPOT11, SPOT11),
+        SPOT12 = NVL(p_SPOT12, SPOT12),
+        SPOT13 = NVL(p_SPOT13, SPOT13),
+        SPOT14 = NVL(p_SPOT14, SPOT14),
+        SPOT15 = NVL(p_SPOT15, SPOT15),
+        SPOT16 = NVL(p_SPOT16, SPOT16),
+        SPOT17 = NVL(p_SPOT17, SPOT17),
+        SPOT18 = NVL(p_SPOT18, SPOT18),
+        SPOT19 = NVL(p_SPOT19, SPOT19),
+        SPOT20 = NVL(p_SPOT20, SPOT20),
+        SPOT21 = NVL(p_SPOT21, SPOT21),
+        SPOT22 = NVL(p_SPOT22, SPOT22),
+        SPOT23 = NVL(p_SPOT23, SPOT23),
+        SPOT24 = NVL(p_SPOT24, SPOT24),
+        SPOT25 = NVL(p_SPOT25, SPOT25),
+        SPOT26 = NVL(p_SPOT26, SPOT26),
+        SPOT27 = NVL(p_SPOT27, SPOT27),
+        SPOT28 = NVL(p_SPOT28, SPOT28),
+        SPOT29 = NVL(p_SPOT29, SPOT29),
+        SPOT30 = NVL(p_SPOT30, SPOT30),
+        SPOT31 = NVL(p_SPOT31, SPOT31)
+    WHERE yearmonth = p_yearmonth;
+END BC_UPDATE_SPOT;
+/
