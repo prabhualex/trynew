@@ -1,0 +1,102 @@
+using System;
+using System.Net;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
+
+namespace EjemploClienteRest
+{
+    [DataContract]
+    class Serie
+    {
+        [DataMember(Name = "titulo")]
+        public string Title { get; set; }
+
+        [DataMember(Name = "idSerie")]
+        public string IdSerie { get; set; }
+
+        [DataMember(Name = "datos")]
+        public DataSerie[] Data { get; set; }
+    }
+
+    [DataContract]
+    class DataSerie
+    {
+        [DataMember(Name = "fecha")]
+        public string Date { get; set; }
+
+        [DataMember(Name = "dato")]
+        public string Data { get; set; }
+    }
+
+    [DataContract]
+    class SeriesResponse
+    {
+        [DataMember(Name = "series")]
+        public Serie[] series { get; set; }
+    }
+
+    [DataContract]
+    class Response
+    {
+        [DataMember(Name = "bmx")]
+        public SeriesResponse seriesResponse { get; set; }
+    }
+
+    class Program
+    {
+        public static Response ReadSerie()
+        {
+            try
+            {
+                string url = "https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF61745/datos/2023-01-31/2023-01-31";
+                HttpWebRequest request = WebRequest.Create(url) as HttpWebRequest;
+
+                // Set the proxy details
+                WebProxy proxy = new WebProxy("http://primary-proxy.intranet.barcapint.com:8080/", true);
+                proxy.Credentials = new NetworkCredential("your-username", "your-password");
+                request.Proxy = proxy;
+
+                request.Accept = "application/json";
+                request.Headers["Bmx-Token"] = "d1c08da5f04ff3b275890ecef52faed53f8020b997c575a1ca7705af28704e39";
+
+                HttpWebResponse response = request.GetResponse() as HttpWebResponse;
+                if (response.StatusCode != HttpStatusCode.OK)
+                    throw new Exception(String.Format(
+                        "Server error (HTTP {0}: {1}).",
+                        response.StatusCode,
+                        response.StatusDescription));
+
+                DataContractJsonSerializer jsonSerializer = new DataContractJsonSerializer(typeof(Response));
+                object objResponse = jsonSerializer.ReadObject(response.GetResponseStream());
+                Response jsonResponse = objResponse as Response;
+                return jsonResponse;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+            return null;
+        }
+
+        static void Main(string[] args)
+        {
+            Response response = ReadSerie();
+            if (response != null)
+            {
+                Serie serie = response.seriesResponse.series[0];
+                Console.WriteLine("Serie: {0}", serie.Title);
+                foreach (DataSerie dataSerie in serie.Data)
+                {
+                    if (dataSerie.Data.Equals("N/E")) continue;
+                    Console.WriteLine("Fecha: {0}", dataSerie.Date);
+                    Console.WriteLine("Dato: {0}", dataSerie.Data);
+                }
+            }
+            else
+            {
+                Console.WriteLine("No response received from the server.");
+            }
+            Console.ReadLine();
+        }
+    }
+}
