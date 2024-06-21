@@ -1,0 +1,29 @@
+CREATE OR REPLACE PROCEDURE OPICSPLUS42DEV1_USER.BC_SP_UPD_SPOT_RATE(settlementDate IN varchar2, spotRateValue IN number)
+IS
+    settDate varchar2(2);
+    settDateInt number;
+    settYrMnth varchar2(6);
+    sqlQuery varchar2(4000);
+BEGIN
+    dbms_output.enable(1000000);
+
+    settDate := TO_CHAR(TO_DATE(settlementDate, 'YYYY-MM-DD'), 'DD');
+    settDateInt := TO_NUMBER(settDate);  -- Convert the day part to an integer
+    settYrMnth := TO_CHAR(TO_DATE(settlementDate, 'YYYY-MM-DD'), 'YYYYMM');
+
+    sqlQuery := 'UPDATE SRHR SET SPOTRATE' || settDateInt || '_8 = ' || spotRateValue || 
+                ' WHERE CCY = ''UDI'' AND YRMONTH = ' || settYrMnth || ' AND BR = ''01''';
+
+    DBMS_OUTPUT.PUT_LINE(sqlQuery);
+
+    EXECUTE IMMEDIATE sqlQuery;
+
+    COMMIT;
+EXCEPTION
+    WHEN OTHERS THEN 
+    BEGIN
+        ROLLBACK;
+        raise_application_error(-20001, SQLERRM);
+    END;
+END;
+/
