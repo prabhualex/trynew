@@ -5,22 +5,23 @@ IS
     sqlQuery varchar2(4000);
 BEGIN
     dbms_output.enable(1000000);
-    
+
     settDate := TO_CHAR(TO_DATE(settlementDate, 'YYYY-MM-DD'), 'DD');
     settYrMnth := TO_CHAR(TO_DATE(settlementDate, 'YYYY-MM-DD'), 'YYYYMM');
-    
-    -- Correcting the dynamic column name construction
-    sqlQuery := 'UPDATE SRHR SET SPOTRATE' || settDate || '_8 = :spotRateValue WHERE CCY = ''UDI'' AND YRMONTH = :settYrMnth AND BR = ''01''';
-    
+
+    sqlQuery := 'UPDATE SRHR SET SPOTRATE' || settDate || '_8 = ' || spotRateValue || 
+                ' WHERE CCY = ''UDI'' AND YRMONTH = ' || settYrMnth || ' AND BR = ''01''';
+
     DBMS_OUTPUT.PUT_LINE(sqlQuery);
-    
-    EXECUTE IMMEDIATE sqlQuery USING spotRateValue, settYrMnth;
-    
+
+    EXECUTE IMMEDIATE sqlQuery;
+
     COMMIT;
 EXCEPTION
-    WHEN OTHERS THEN
-        BEGIN
-            ROLLBACK;
-            raise_application_error(-20001, SQLERRM);
-        END;
+    WHEN OTHERS THEN 
+    BEGIN
+        ROLLBACK;
+        raise_application_error(-20001, SQLERRM);
+    END;
 END;
+/
