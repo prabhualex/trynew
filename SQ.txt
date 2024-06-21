@@ -9,7 +9,8 @@ BEGIN
     settDate := TO_CHAR(TO_DATE(settlementDate, 'YYYY-MM-DD'), 'DD');
     settYrMnth := TO_CHAR(TO_DATE(settlementDate, 'YYYY-MM-DD'), 'YYYYMM');
     
-    sqlQuery := 'UPDATE SRHR SET SPOTRATE' || settDate || '8 = :spotRateValue WHERE CCY = ''UDI'' AND YRMONTH = :settYrMnth AND BR = ''01''';
+    -- Correcting the dynamic column name construction
+    sqlQuery := 'UPDATE SRHR SET SPOTRATE' || settDate || '_8 = :spotRateValue WHERE CCY = ''UDI'' AND YRMONTH = :settYrMnth AND BR = ''01''';
     
     DBMS_OUTPUT.PUT_LINE(sqlQuery);
     
