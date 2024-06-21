@@ -1,102 +1,25 @@
-using System;
-using System.Globalization;
-using System.Net.Http;
-using OfficeOpenXml;
-using HtmlAgilityPack;
-using System.IO;
-
-namespace HtmlToExcel
-{
-    class Program
-    {
-        static async System.Threading.Tasks.Task Main(string[] args)
-        {
-            string url = "http://example.com/yourhtmlfile.html"; // Replace with the actual URL
-            string excelPath = "output.xlsx";
-
-            // Fetch the HTML content
-            var httpClient = new HttpClient();
-            var html = await httpClient.GetStringAsync(url);
-
-            // Load the HTML document
-            var htmlDoc = new HtmlDocument();
-            htmlDoc.LoadHtml(html);
-
-            // Find the table
-            var table = htmlDoc.DocumentNode.SelectSingleNode("//table");
-            if (table == null)
-            {
-                Console.WriteLine("No table found in the HTML file.");
-                return;
-            }
-
-            // Create a new Excel package
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-            using (var package = new ExcelPackage())
-            {
-                var worksheet = package.Workbook.Worksheets.Add("Sheet1");
-
-                // Process the table rows
-                var rows = table.SelectNodes(".//tr");
-                if (rows != null && rows.Count > 0)
-                {
-                    int rowIndex = 1;
-
-                    // Process the header row
-                    var headerCells = rows[0].SelectNodes(".//th|.//td");
-                    int fechaIndex = -1, valorIndex = -1;
-
-                    for (int i = 0; i < headerCells.Count; i++)
-                    {
-                        var headerText = headerCells[i].InnerText.Trim().ToLower();
-                        worksheet.Cells[rowIndex, i + 1].Value = headerText;
-
-                        if (headerText == "fecha")
-                        {
-                            fechaIndex = i;
-                        }
-                        else if (headerText == "valor")
-                        {
-                            valorIndex = i;
-                        }
-                    }
-
-                    if (fechaIndex == -1 || valorIndex == -1)
-                    {
-                        Console.WriteLine("The table does not contain the required columns.");
-                        return;
-                    }
-
-                    // Process the data rows
-                    for (int i = 1; i < rows.Count; i++)
-                    {
-                        var cells = rows[i].SelectNodes(".//td");
-                        if (cells != null && cells.Count > Math.Max(fechaIndex, valorIndex))
-                        {
-                            string fechaText = cells[fechaIndex].InnerText.Trim();
-                            string valorText = cells[valorIndex].InnerText.Trim();
-
-                            // Parse and write the fecha
-                            if (DateTime.TryParseExact(fechaText, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime fecha))
-                            {
-                                worksheet.Cells[i + 1, fechaIndex + 1].Value = fecha;
-                                worksheet.Cells[i + 1, fechaIndex + 1].Style.Numberformat.Format = "dd/MM/yyyy";
-                            }
-
-                            // Parse and write the valor
-                            if (double.TryParse(valorText, NumberStyles.Any, CultureInfo.InvariantCulture, out double valor))
-                            {
-                                worksheet.Cells[i + 1, valorIndex + 1].Value = valor;
-                            }
-                        }
-                    }
-
-                    // Save the Excel file
-                    package.SaveAs(new FileInfo(excelPath));
-                }
-            }
-
-            Console.WriteLine("Excel file created successfully at " + excelPath);
-        }
-    }
-}
+CREATE OR REPLACE PROCEDURE OPICSPLUS42DEV1_USER.BC_SP_UPD_SPOT_RATE(settlementDate IN varchar2, spotRateValue IN number)
+IS
+    settDate varchar2(2);
+    settYrMnth varchar2(6);
+    sqlQuery varchar2(4000);
+BEGIN
+    dbms_output.enable(1000000);
+    
+    settDate := TO_CHAR(TO_DATE(settlementDate, 'YYYY-MM-DD'), 'DD');
+    settYrMnth := TO_CHAR(TO_DATE(settlementDate, 'YYYY-MM-DD'), 'YYYYMM');
+    
+    sqlQuery := 'UPDATE SRHR SET SPOTRATE' || settDate || '8 = :spotRateValue WHERE CCY = ''UDI'' AND YRMONTH = :settYrMnth AND BR = ''01''';
+    
+    DBMS_OUTPUT.PUT_LINE(sqlQuery);
+    
+    EXECUTE IMMEDIATE sqlQuery USING spotRateValue, settYrMnth;
+    
+    COMMIT;
+EXCEPTION
+    WHEN OTHERS THEN
+        BEGIN
+            ROLLBACK;
+            raise_application_error(-20001, SQLERRM);
+        END;
+END;
