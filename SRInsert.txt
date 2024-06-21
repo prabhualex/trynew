@@ -1,0 +1,37 @@
+CREATE OR REPLACE PROCEDURE OPICSPLUS42DEV1_USER.BC_SP_UPD_SPOT_RATE(settlementDate IN varchar2, spotRateValue IN number)
+IS
+    settDate varchar2(2);
+    settYrMnth varchar2(6);
+    sqlQuery varchar2(4000);
+    cnt number;
+BEGIN
+    dbms_output.enable(1000000);
+    
+    settDate := TO_CHAR(TO_DATE(settlementDate, 'YYYY-MM-DD'), 'DD');
+    settYrMnth := TO_CHAR(TO_DATE(settlementDate, 'YYYY-MM-DD'), 'YYYYMM');
+    
+    -- Check if the record exists
+    SELECT COUNT(*) INTO cnt
+    FROM SRHR
+    WHERE CCY = 'UDI' AND YRMONTH = settYrMnth AND BR = '01';
+    
+    IF cnt > 0 THEN
+        -- Record exists, perform the update
+        sqlQuery := 'UPDATE SRHR SET SPOTRATE' || settDate || '_8 = :spotRateValue WHERE CCY = ''UDI'' AND YRMONTH = :settYrMnth AND BR = ''01''';
+        DBMS_OUTPUT.PUT_LINE('Updating: ' || sqlQuery);
+        EXECUTE IMMEDIATE sqlQuery USING spotRateValue, settYrMnth;
+    ELSE
+        -- Record does not exist, perform the insert
+        sqlQuery := 'INSERT INTO SRHR (CCY, YRMONTH, BR, SPOTRATE' || settDate || '_8) VALUES (''UDI'', :settYrMnth, ''01'', :spotRateValue)';
+        DBMS_OUTPUT.PUT_LINE('Inserting: ' || sqlQuery);
+        EXECUTE IMMEDIATE sqlQuery USING settYrMnth, spotRateValue;
+    END IF;
+    
+    COMMIT;
+EXCEPTION
+    WHEN OTHERS THEN
+        BEGIN
+            ROLLBACK;
+            raise_application_error(-20001, SQLERRM);
+        END;
+END;
