@@ -1,0 +1,95 @@
+namespace KafkaConsumer
+{
+    public class TransactionMessage
+    {
+        public string DealRevision { get; set; }
+        public string ExternalTicketId { get; set; }
+        public string FromWhereCode { get; set; }
+        public string TransactionType { get; set; }
+        public string TransactionDate { get; set; }
+        public string TransactionTime { get; set; }
+        public string CollateralPurpose { get; set; }
+        public string ExternalTraderId { get; set; }
+        public string Subsidiary { get; set; }
+        public string StartDate { get; set; }
+        public string FixedOpen { get; set; }
+        public string KeyFld { get; set; }
+        public string SecurityIdType { get; set; }
+        public string SecurityId { get; set; }
+        public string CodeKey { get; set; }
+        public string CounterpartyIdType { get; set; }
+        public string CounterpartyId { get; set; }
+        public string Face { get; set; }
+        public string CashCurrency { get; set; }
+        public string RepoRate { get; set; }
+        public string Index { get; set; }
+        public string Spread { get; set; }
+        public string Strategy { get; set; }
+        public string Purpose { get; set; }
+        public string StartCash { get; set; }
+        public string Notes { get; set; }
+        public string RepoRateCode { get; set; }
+        public string RepoYr { get; set; }
+        public string IntMethod { get; set; }
+        public string EndDate { get; set; }
+        public string Haircut { get; set; }
+        public string NettingGroup { get; set; }
+        public string DepoNumber { get; set; }
+        public string DeliveryReturnIndicator { get; set; }
+        public string FloorRate { get; set; }
+        public string AmendedSourceId { get; set; }
+        public string Event { get; set; }
+        public string DateLastUpdated { get; set; }
+    }
+}
+
+
+
+using Confluent.Kafka;
+using Newtonsoft.Json;
+using System;
+using System.Threading;
+using KafkaConsumer; // Ensure this matches the namespace in TransactionMessage.cs
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        var config = new ConsumerConfig
+        {
+            GroupId = "transaction-consumer-group",
+            BootstrapServers = "localhost:9092",
+            AutoOffsetReset = AutoOffsetReset.Earliest
+        };
+
+        using (var consumer = new ConsumerBuilder<Ignore, string>(config).Build())
+        {
+            consumer.Subscribe("your-topic-name");
+
+            CancellationTokenSource cts = new CancellationTokenSource();
+            Console.CancelKeyPress += (_, e) => {
+                e.Cancel = true;
+                cts.Cancel();
+            };
+
+            try
+            {
+                while (true)
+                {
+                    var consumeResult = consumer.Consume(cts.Token);
+                    var message = JsonConvert.DeserializeObject<TransactionMessage>(consumeResult.Message.Value);
+                    
+                    // Process the message
+                    Console.WriteLine($"Consumed message with ExternalTicketId: {message.ExternalTicketId}, TransactionType: {message.TransactionType}");
+                    
+                    // Add your processing logic here
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Ensure the consumer leaves the group cleanly and final offsets are committed.
+                consumer.Close();
+            }
+        }
+    }
+}
