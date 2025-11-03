@@ -1,0 +1,61 @@
+private async Task<bool> ProcessMessage(string jsonData)
+{
+    try
+    {
+        using JsonDocument doc = JsonDocument.Parse(jsonData);
+        var root = doc.RootElement;
+
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            _logger.LogWarning("Invalid JSON — not an object ❌");
+            return false;
+        }
+
+        var columns = new List<string>();
+        var parameters = new List<string>();
+        var oracleParams = new List<OracleParameter>();
+
+        foreach (var prop in root.EnumerateObject())
+        {
+            string column = prop.Name;
+            string paramName = ":" + column; // Oracle uses :param
+
+            object value = prop.Value.ValueKind switch
+            {
+                JsonValueKind.String => prop.Value.GetString(),
+                JsonValueKind.Number => prop.Value.TryGetInt32(out int i) ? i : prop.Value.GetDouble(),
+                JsonValueKind.True => 1,
+                JsonValueKind.False => 0,
+                _ => DBNull.Value
+            };
+
+            columns.Add($"\"{column}\""); // Oracle column case-sensitive
+            parameters.Add(paramName);
+            oracleParams.Add(new OracleParameter(paramName, value));
+        }
+
+        if (columns.Count == 0)
+        {
+            _logger.LogWarning("Empty JSON. Skip.");
+            return false;
+        }
+
+        string query = $"INSERT INTO \"{_tableName}\" ({string.Join(",", columns)}) VALUES ({string.Join(",", parameters)})";
+
+        using var conn = new OracleConnection(_connectionString);
+        await conn.OpenAsync();
+
+        using var cmd = new OracleCommand(query, conn);
+        cmd.Parameters.AddRange(oracleParams.ToArray());
+
+        await cmd.ExecuteNonQueryAsync();
+
+        _logger.LogInformation("Insert Success into Oracle ✅");
+        return true;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError($"Oracle Insert Failed ❌: {ex.Message}");
+        return false;
+    }
+}
