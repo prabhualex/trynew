@@ -1,0 +1,48 @@
+using Serilog;
+using System.Runtime.InteropServices;
+
+public static class Program
+{
+    public static void Main(string[] args)
+    {
+        // ✅ Setup Serilog first
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .Enrich.FromLogContext()
+            .WriteTo.Console()
+            .WriteTo.File(
+                Path.Combine(AppContext.BaseDirectory, "Logs", "EXMA_Consumer.log"),
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 30
+            )
+            .CreateLogger();
+
+        try
+        {
+            Log.Information("Starting KafkaConsumer Worker...");
+
+            var host = Host.CreateDefaultBuilder(args)
+                .UseSerilog() // ✅ Replace default logger with Serilog
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders(); // ✅ Remove EventLog provider entirely
+                })
+                .ConfigureServices(services =>
+                {
+                    services.AddHostedService<KafkaConsumerWorker>();
+                })
+                .UseWindowsService() // ✅ Still supports Windows Service deployment
+                .Build();
+
+            host.Run();
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "KafkaConsumer Worker failed to start");
+        }
+        finally
+        {
+            Log.CloseAndFlush();
+        }
+    }
+}
