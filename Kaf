@@ -1,48 +1,204 @@
-using Serilog;
-using System.Runtime.InteropServices;
+Nice — let’s get your **EXMA** (.NET 6 Kafka consumer + lib folder + dependent DLLs) into your GitLab repo. Below is a safe, step-by-step guide with exact commands you can run from **PowerShell/Git Bash** on Windows. I’ll include fixes for common errors you’ve seen (like `apphost.exe` / `obj`/`bin` files being committed).
 
-public static class Program
-{
-    public static void Main(string[] args)
-    {
-        // ✅ Setup Serilog first
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Information()
-            .Enrich.FromLogContext()
-            .WriteTo.Console()
-            .WriteTo.File(
-                Path.Combine(AppContext.BaseDirectory, "Logs", "EXMA_Consumer.log"),
-                rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 30
-            )
-            .CreateLogger();
+---
 
-        try
-        {
-            Log.Information("Starting KafkaConsumer Worker...");
+# 1) Create the repository on GitLab
 
-            var host = Host.CreateDefaultBuilder(args)
-                .UseSerilog() // ✅ Replace default logger with Serilog
-                .ConfigureLogging(logging =>
-                {
-                    logging.ClearProviders(); // ✅ Remove EventLog provider entirely
-                })
-                .ConfigureServices(services =>
-                {
-                    services.AddHostedService<KafkaConsumerWorker>();
-                })
-                .UseWindowsService() // ✅ Still supports Windows Service deployment
-                .Build();
+1. In your GitLab account click **New project → Create blank project**
+2. Name it `EXMA`. Note the repo URL GitLab shows after creation, e.g.
 
-            host.Run();
-        }
-        catch (Exception ex)
-        {
-            Log.Fatal(ex, "KafkaConsumer Worker failed to start");
-        }
-        finally
-        {
-            Log.CloseAndFlush();
-        }
-    }
-}
+```
+https://gitlab.com/<your-username>/EXMA.git
+```
+
+You’ll use that as `origin` in the commands below.
+
+---
+
+# 2) Prepare your local folder
+
+Open PowerShell (or Git Bash) and go to your project folder:
+
+```powershell
+cd "C:\devhome\projects\EXMA"
+```
+
+If you already have a `.git` folder from prior attempts and want a clean start:
+
+```powershell
+# optional: remove old git metadata (ONLY if you want to reinitialize)
+rm -Recurse -Force .git
+```
+
+---
+
+# 3) Add a proper .gitignore (important!)
+
+Create a `.gitignore` that excludes build output and sensitive/generated files. Create `C:\devhome\projects\EXMA\.gitignore` with this content (or run the command to create it):
+
+```gitignore
+# Visual Studio / .NET
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.pdb
+*.cache
+*.log
+*.dbmdl
+*.dbproj.schemaview
+TestResults/
+*.publishsettings
+
+# NuGet
+*.nupkg
+packages/
+
+# Rider / JetBrains
+.idea/
+
+# DotNet build artifacts
+appsettings.*.json
+
+# Git LFS pointer for large files (if using LFS, keep .gitattributes)
+```
+
+**Important:** *Do not* ignore a `lib/` folder if you intend to commit DLLs there. Place your dependent DLLs inside `lib/` (e.g. `EXMA/lib/...`) so they are tracked.
+
+---
+
+# 4) Initialize repo, add files, commit
+
+```bash
+git init
+git add .gitignore
+# add solution, projects and lib folder but skip bin/obj because of .gitignore
+git add *.sln
+git add **/*.csproj
+git add lib
+git add -f README.md || true
+git commit -m "Initial commit: EXMA .NET6 Kafka consumer + lib"
+```
+
+Notes:
+
+* `git add lib` will add the `lib` folder and DLLs inside it.
+* If you prefer, create a short README first.
+
+---
+
+# 5) Add GitLab remote and push
+
+Replace the URL below with the GitLab repo URL you got when creating `EXMA`.
+
+```bash
+git remote add origin https://gitlab.com/<your-username>/EXMA.git
+# rename current branch to main (optional)
+git branch -M main
+git push -u origin main
+```
+
+If GitLab requires SSH and you have SSH key:
+
+```bash
+git remote add origin git@gitlab.com:<your-username>/EXMA.git
+git push -u origin main
+```
+
+---
+
+# 6) Fixing “Disallowed files in commit” or accidental commit of bin/obj/apphost.exe
+
+If you already tried to push and got errors like `Disallowed files in commit 'EXMA/obj/Debug/net6.0/apphost.exe'` or `pathspec 'EXMA/obj' did not match any files`, follow these steps to remove those from the index and push a clean commit:
+
+```bash
+# 1. Ensure .gitignore contains bin/ and obj/ (see above)
+# 2. Remove any previously staged/committed build artifacts from the index:
+git rm -r --cached EXMA/bin || true
+git rm -r --cached EXMA/obj || true
+git rm -r --cached **/bin || true
+git rm -r --cached **/obj || true
+
+# 3. Commit the removal
+git add .gitignore
+git commit -m "Remove build artifacts from repository and add .gitignore"
+
+# 4. Push again
+git push origin main
+```
+
+If a commit containing big/disallowed files is already on the remote and the GitLab server rejects it, you may need to:
+
+* Remove the commits locally (rebase/reset) and force push (use cautiously).
+* OR ask GitLab admin to allow that file (not recommended for build output).
+
+Example to remove last commit (dangerous if shared):
+
+```bash
+# Only if you made the problematic commit locally and haven't shared it
+git reset --soft HEAD~1
+# Unstage everything, then re-add only wanted files:
+git reset
+git add .
+git commit -m "Clean commit without bin/obj files"
+git push --force origin main   # only if you know consequences
+```
+
+---
+
+# 7) If DLLs are large — consider Git LFS
+
+If any DLLs in `lib/` are large (>50MB) or you're committing many binaries, enable Git LFS:
+
+```bash
+# install Git LFS on your system (outside git commands) then:
+git lfs install
+# track dlls
+git lfs track "*.dll"
+# this creates .gitattributes; commit it
+git add .gitattributes
+git add lib/*.dll
+git commit -m "Add dependent DLLs using Git LFS"
+git push origin main
+```
+
+(If you don’t want LFS, keep DLLs but ensure size < repo limits and your GitLab plan allows them.)
+
+---
+
+# 8) CI / pipeline notes (optional)
+
+If you plan to build in GitLab CI later, add `.gitlab-ci.yml` at repo root. For now, push source + `lib/` so developers or the deployment server can restore/run locally.
+
+---
+
+# 9) Verify on GitLab
+
+Go to your repo URL in browser and confirm:
+
+* `main` branch exists
+* `lib/` folder and project files are present
+* No `bin/` or `obj/` folders are in the commit history (unless intentionally added)
+
+---
+
+# Quick checklist (summary)
+
+* [x] Create repo on GitLab (grab URL)
+* [x] Add `.gitignore` (ignore `bin/` & `obj/`)
+* [x] Put dependent DLLs under `lib/`
+* [x] `git init` → `git add` → `git commit`
+* [x] `git remote add origin <URL>` → `git push -u origin main`
+* [x] If build artifacts were committed earlier: `git rm --cached` them → commit → push
+* [x] Use Git LFS for large binaries if needed
+
+---
+
+If you want, I can:
+
+* generate a ready `.gitignore` matching Visual Studio / .NET 6 (I already gave one above),
+* give an example `.gitattributes` for LFS,
+* or produce an example `.gitlab-ci.yml` to build your worker and publish artifacts.
+
+Which of those would you like me to produce next?
